@@ -1,0 +1,1 @@
+# C/C++ project rules for DevSweep scanner.

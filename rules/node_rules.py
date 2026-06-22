@@ -1,0 +1,1 @@
+# NodeJS project rules for DevSweep scanner.

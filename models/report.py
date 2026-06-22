@@ -1,0 +1,1 @@
+# Scan report model for DevSweep scanner.

@@ -1,0 +1,1 @@
+# Java project rules for DevSweep scanner.

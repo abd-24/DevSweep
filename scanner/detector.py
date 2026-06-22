@@ -1,0 +1,1 @@
+# Detect candidate files/folders.
