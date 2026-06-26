@@ -37,7 +37,7 @@ ALWAYS_SKIP = {
     ".vscode",
 }
 
-def scan(root: Path, skip_hidden: bool = True) -> ScanResult:
+def scan(root: Path, skip_hidden: bool = True, skip_deletables: set = None) -> ScanResult:
     """
     Recursively walk every folder and file under root.
 
@@ -60,13 +60,25 @@ def scan(root: Path, skip_hidden: bool = True) -> ScanResult:
     result = ScanResult(root=root)
 
     for current_dir, subdirs, files in root.walk():
+        for d in subdirs:
+            folder_path = current_dir / d
+            try:
+                if folder_path.is_symlink():
+                    continue
+            except OSError:
+                continue
+            
+            if skip_deletables and d in skip_deletables:
+                result.folders.append(folder_path)
+                
         subdirs[:] = [
             d for d in subdirs
             if d not in ALWAYS_SKIP
             and not (skip_hidden and d.startswith("."))
+            and (skip_deletables is None or d not in skip_deletables) # <- for making sure scan doesn't go into deletable folders
         ]
-        for subfolder in subdirs:
-            folder_path = current_dir / subfolder
+        for d in subdirs:
+            folder_path = current_dir / d
 
             # skip symbolic links — follow-through can cause infinite loops
             try:
