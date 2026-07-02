@@ -35,6 +35,7 @@ ALWAYS_SKIP = {
     ".git",
     ".idea",
     ".vscode",
+    "reports",
 }
 
 def scan(root: Path, skip_hidden: bool = True, skip_deletables: set = None) -> ScanResult:
