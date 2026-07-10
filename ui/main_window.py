@@ -13,11 +13,13 @@ from PySide6.QtWidgets import (
 )
 from ui.tree_widget import CandidateTree
 from PySide6.QtCore import Qt
-
+from PySide6.QtGui import QIcon
+from ui.styles import APP_STYLESHEET
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowIcon(QIcon("assets/icon.png"))
         self.setWindowTitle("DevSweep")
         self.setMinimumSize(900, 600)
 
@@ -30,6 +32,7 @@ class MainWindow(QMainWindow):
         self._build_results_area()  # middle section
         self._build_action_row()    # bottom section
         self.tree.itemChanged.connect(self._on_selection_changed)
+        self._apply_styles()
 
     def _build_folder_row(self):
         row = QHBoxLayout()
@@ -42,12 +45,14 @@ class MainWindow(QMainWindow):
         row.addWidget(self.browse_button)
         self.layout.addLayout(row)
         self.browse_button.clicked.connect(self._on_browse)
+        self.browse_button.setObjectName("browse_button")
         
     def _build_results_area(self):
         self.tree = CandidateTree()
         self.savings_label = QLabel("Potential savings: 0 B")
         self.layout.addWidget(self.tree)
         self.layout.addWidget(self.savings_label)
+        self.savings_label.setObjectName("savings_label")
 
     def _on_selection_changed(self):
         from services.file_service import format_size
@@ -69,7 +74,7 @@ class MainWindow(QMainWindow):
         self.auto_select_btn.clicked.connect(self._on_auto_select)
         self.delete_btn.clicked.connect(self._on_delete)
         self.dry_run_btn.clicked.connect(self._on_dry_run)
-
+        self.delete_btn.setObjectName("delete_button")
     def _on_browse(self):
         from PySide6.QtWidgets import QFileDialog
         folder = QFileDialog.getExistingDirectory(self, "Select Project Folder")
@@ -144,6 +149,10 @@ class MainWindow(QMainWindow):
                         show_error(self, f"Failed to delete {path}: {e}")
         self._run_scan(self.path_display.text())
         self.tree.update_savings()
+
+    #Styling
+    def _apply_styles(self):
+       self.setStyleSheet(APP_STYLESHEET)
 
 
 if __name__ == "__main__":

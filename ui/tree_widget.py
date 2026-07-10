@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
-
+from PySide6.QtGui import QColor
 from models.candidate import Candidate
 from services.file_service import get_size, format_size
 
@@ -31,7 +31,7 @@ class CandidateTree(QTreeWidget):
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
 
         self.setRootIsDecorated(False)
         self.setAlternatingRowColors(True)
@@ -63,9 +63,17 @@ class CandidateTree(QTreeWidget):
 
             item.setTextAlignment(2, Qt.AlignCenter)
             item.setTextAlignment(3, Qt.AlignRight | Qt.AlignVCenter)
-            item.setTextAlignment(4, Qt.AlignCenter)
+            item.setTextAlignment(4, Qt.AlignLeft | Qt.AlignVCenter)
 
             self.addTopLevelItem(item)
+
+            # color code the label column
+            if label == "safe":
+                item.setForeground(4, QColor("#a6e3a1"))   # green
+            elif label == "review":
+                item.setForeground(4, QColor("#f9e2af"))   # yellow
+            else:
+                item.setForeground(4, QColor("#f38ba8"))   # red
 
     def get_checked(self) -> list[Path]:
         checked = []
