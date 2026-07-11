@@ -6,17 +6,18 @@ The report includes classified candidates, their scores, and metadata about the 
 """
 
 import json
+import dataclasses
 from datetime import datetime
 from pathlib import Path
 from models.candidate import Candidate
 from services.file_service import get_size
-
+from models.report import ScanReport
 
 def generate_scan_report(
     candidates: list[Candidate],
     scores: dict[Path, tuple[int, str]],
     root: Path
-) -> dict:
+) -> ScanReport:
     """
     Build a scan report dict from classified candidates.
     
@@ -44,31 +45,30 @@ def generate_scan_report(
         if label == "safe":
             safe.append(entry)
             total_reclaimable += size
-
         elif label == "review":
             review.append(entry)
         else:
             ignore.append(entry)
 
-    return {
-        "timestamp": datetime.now().isoformat(),
-        "root_path": str(root),
-        "total_candidates": len(candidates),
-        "total_reclaimable_size": total_reclaimable,
-        "safe": safe,
-        "review": review,
-        "ignore": ignore,
-    }
+    return ScanReport(
+        timestamp=datetime.now().isoformat(),
+        root_path=str(root),
+        total_candidates=len(candidates),
+        total_reclaimable_size=total_reclaimable,
+        safe=safe,
+        review=review,
+        ignore=ignore,
+    )
 
 
-def save_report(report: dict, path: Path) -> None:
+def save_report(report: ScanReport, path: Path) -> None:
     """
     Save a report dict to a JSON file.
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as f:
-            json.dump(report, f, indent=4)
+            json.dump(dataclasses.asdict(report), f, indent=4, default=str)
     except OSError as e:
         raise OSError(f"Failed to save report to {path}") from e
     

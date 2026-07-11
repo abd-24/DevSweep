@@ -11,8 +11,8 @@ class ScanReport:
     timestamp: str
     root_path: Path
     total_candidates: int
-    total_reclaimable: int
-    safe: list[Candidate] = field(default_factory=list)
-    review: list[Candidate] = field(default_factory=list)
-    ignore: list[Candidate] = field(default_factory=list)
+    total_reclaimable_size: int
+    safe: list[dict] = field(default_factory=list)
+    review: list[dict] = field(default_factory=list)
+    ignore: list[dict] = field(default_factory=list)
   
