@@ -35,11 +35,11 @@ DELETABLES = [
 ]
 
 REVIEWABLES = [
-    "*.log",
-    "*.tmp",
-    "*.o",
-    "*.obj",
-    "*.d",
+    ".log",
+    ".tmp",
+    ".o",
+    ".obj",
+    ".d",
     "CMakeCache.txt",
     "cmake_install.cmake",
     "CTestTestfile.cmake",

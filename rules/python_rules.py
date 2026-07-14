@@ -17,7 +17,7 @@ DELETABLES = [
     "__pycache__",
     "build",
     "dist",
-    "*.egg-info",
+    ".egg-info",
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
@@ -28,8 +28,8 @@ DELETABLES = [
 ]
 
 REVIEWABLES = [
-    "*.log",
-    "*.tmp",
-    "*.coverage",
+    ".log",
+    ".tmp",
+    ".coverage",
     "pip-log.txt",
 ]

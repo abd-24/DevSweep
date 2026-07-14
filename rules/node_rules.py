@@ -36,8 +36,8 @@ DELETABLES = [
 ]
 
 REVIEWABLES = [
-    "*.log",
-    "*.tmp",
+    ".log",
+    ".tmp",
     "npm-debug.log",
     "yarn-error.log",
     ".eslintcache",

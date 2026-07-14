@@ -33,8 +33,7 @@ DELETABLES = [
 ]
 
 REVIEWABLES = [
-    "*.log",
-    "*.tmp",
-    "*.class",
-    "hs_err_pid*",
+    ".log",
+    ".tmp",
+    ".class",
     ]
