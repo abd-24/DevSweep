@@ -13,7 +13,12 @@ ECOSYSTEM_RULES = [
 ]
 
 def find_ecosystem(path: Path) -> str:
-    for parent in path.parents:
+    """
+    Inspect the candidate's directory and its parents to determine the ecosystem.
+    """
+    # Check the candidate's containing directory first, then walk up parents
+    start_dirs = [path if path.is_dir() else path.parent, *(path.parents)]
+    for parent in start_dirs:
         try:
             files_here = {f.name for f in parent.iterdir() if f.is_file()}
         except PermissionError:
@@ -37,8 +42,6 @@ def detect_candidates(scan_result: ScanResult):
     """
     candidates = []
 
-    
-   
     for folder_path in scan_result.folders:
         if folder_path.name in ALL_DELETABLES:
             detected = find_ecosystem(folder_path)
@@ -50,13 +53,17 @@ def detect_candidates(scan_result: ScanResult):
             ))
 
     for file_path in scan_result.files:
-        if file_path.name in ALL_REVIEWABLES:
+        # Reviewable rules may include extensions (".log") or exact file names.
+        suffix = file_path.suffix.lower()
+        name = file_path.name
+        if name in ALL_REVIEWABLES or suffix in ALL_REVIEWABLES:
             detected = find_ecosystem(file_path)
+            matched_rule = name if name in ALL_REVIEWABLES else suffix
             candidates.append(Candidate(
                 path=file_path,
                 ecosystem=detected,
                 category="reviewable",
-                matched_rule=file_path.name
+                matched_rule=matched_rule
             ))
 
     return candidates

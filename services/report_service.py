@@ -74,6 +74,14 @@ def save_report(report: ScanReport, path: Path) -> None:
     
 def cleanup_reports(reports_dir: Path, keep: int = 10) -> None:
     """Keep only the most recent N reports, delete the rest."""
-    reports = sorted(reports_dir.glob("scan_*.json"))
-    for old in reports[:-keep]:
-        old.unlink()
+    reports = sorted(
+        reports_dir.glob("scan_*.json"),
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True
+    )
+    for old in reports[keep:]:
+        try:
+            old.unlink()
+        except OSError:
+            # best-effort cleanup; don't raise to caller
+            continue

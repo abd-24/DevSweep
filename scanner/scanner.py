@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from dataclasses import dataclass, field
+import os
 
 
 @dataclass
@@ -60,24 +61,30 @@ def scan(root: Path, skip_hidden: bool = True, skip_deletables: set = None) -> S
 
     result = ScanResult(root=root)
 
-    for current_dir, subdirs, files in root.walk():
-        for d in subdirs:
+    # os.walk yields (current_dir, subdirs, files) where current_dir is a string
+    for current_dir, subdirs, files in os.walk(root):
+        current_dir = Path(current_dir)
+
+        # Record deletable folders at this level (they're not descended into)
+        for d in list(subdirs):
             folder_path = current_dir / d
             try:
                 if folder_path.is_symlink():
                     continue
             except OSError:
                 continue
-            
+
             if skip_deletables and d in skip_deletables:
                 result.folders.append(folder_path)
-                
+
+        # Mutate subdirs in-place to control which directories os.walk descends into
         subdirs[:] = [
             d for d in subdirs
             if d not in ALWAYS_SKIP
             and not (skip_hidden and d.startswith("."))
-            and (skip_deletables is None or d not in skip_deletables) # <- for making sure scan doesn't go into deletable folders
+            and (skip_deletables is None or d not in skip_deletables)
         ]
+
         for d in subdirs:
             folder_path = current_dir / d
 
