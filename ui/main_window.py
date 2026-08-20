@@ -84,10 +84,12 @@ class MainWindow(QMainWindow):
 
     def _run_scan(self, folder: str):
         from pathlib import Path
+        from datetime import datetime
         from scanner.scanner import scan
         from scanner.detector import detect_candidates, ALL_DELETABLES
         from scanner.classifier import classify
-        from services.file_service import format_size
+        from services.file_service import format_size, get_size
+        from services.report_service import generate_scan_report, save_report
 
         root = Path(folder)
         scan_result = scan(root, skip_deletables=ALL_DELETABLES)
@@ -99,11 +101,15 @@ class MainWindow(QMainWindow):
             score, label = classify(c, root)
             scores[c.path] = (score, label)
             if label == "safe":
-                from services.file_service import get_size
                 total_reclaimable += get_size(c.path)
 
         self.tree.populate(candidates, scores)
         self.savings_label.setText(f"Potential savings: {format_size(total_reclaimable)}")
+
+        report = generate_scan_report(candidates, scores, root)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = Path("reports") / f"scan_{timestamp}.json"
+        save_report(report, output)
 
     def _on_select_all(self):
         for i in range(self.tree.topLevelItemCount()):
