@@ -12,16 +12,22 @@ ECOSYSTEM_RULES = [
     ("cpp",    cpp_rules),
 ]
 
-def find_ecosystem(path: Path) -> str:
+def find_ecosystems(path: Path) -> list[str]:
     for parent in path.parents:
         try:
             files_here = {f.name for f in parent.iterdir() if f.is_file()}
-        except PermissionError:
+        except (PermissionError, OSError):
             continue
+        
+        found = []
         for ecosystem, rules in ECOSYSTEM_RULES:
             if any(sig in files_here for sig in rules.SIGNATURES):
-                return ecosystem
-    return "unknown"
+                found.append(ecosystem)
+        
+        if found:
+            return found  # stop at nearest level, return ALL matches
+    
+    return ["unknown"]
 
 ALL_DELETABLES = set()
 ALL_REVIEWABLES = set()
@@ -41,20 +47,20 @@ def detect_candidates(scan_result: ScanResult):
    
     for folder_path in scan_result.folders:
         if folder_path.name in ALL_DELETABLES:
-            detected = find_ecosystem(folder_path)
+            detected = find_ecosystems(folder_path)
             candidates.append(Candidate(
                 path=folder_path,
-                ecosystem=detected,
+                ecosystems=detected,
                 category="deletable",
                 matched_rule=folder_path.name
             ))
 
     for file_path in scan_result.files:
         if file_path.name in ALL_REVIEWABLES:
-            detected = find_ecosystem(file_path)
+            detected = find_ecosystems(file_path)
             candidates.append(Candidate(
                 path=file_path,
-                ecosystem=detected,
+                ecosystems=detected,
                 category="reviewable",
                 matched_rule=file_path.name
             ))

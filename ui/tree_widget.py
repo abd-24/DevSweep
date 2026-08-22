@@ -46,7 +46,7 @@ class CandidateTree(QTreeWidget):
 
             item = QTreeWidgetItem([
                 candidate.path.name,
-                candidate.ecosystem,
+                ", ".join(candidate.ecosystems),
                 str(score),
                 format_size(get_size(candidate.path)),
                 label,

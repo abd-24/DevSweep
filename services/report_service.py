@@ -37,7 +37,7 @@ def generate_scan_report(
         
         entry = {
             "path": str(candidate.path),
-            "ecosystem": candidate.ecosystem,
+            "ecosystems": candidate.ecosystems,
             "score": score,
             "size": size,
         }

@@ -11,7 +11,7 @@ class Candidate:
     A folder or file flagged as a potential artifact.
     """
     path: Path
-    ecosystem: str        # "python", "node", "java", "rust", "cpp", "unknown"
+    ecosystems: list[str]   # e.g. ["python", "node"] or ["unknown"]
     category: str         # "deletable" or "reviewable"
     matched_rule: str     # the exact name that triggered the match e.g. "__pycache__"
 

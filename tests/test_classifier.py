@@ -18,7 +18,7 @@ def test_safe_case(tmp_path):
 
     candidate = Candidate(
         path=tmp_path / "__pycache__",
-        ecosystem="python",
+        ecosystems=["python"],
         category="deletable",
         matched_rule="__pycache__",
     )
@@ -31,7 +31,7 @@ def test_blacklisted_returns_ignore(tmp_path):
     (tmp_path / ".env").mkdir()
     candidate = Candidate(
         path=tmp_path / ".env",
-        ecosystem="python",
+        ecosystems=["python"],
         category="deletable",
         matched_rule=".env",
     )
@@ -46,7 +46,7 @@ def test_never_autoselect_capped_at_review(tmp_path):
 
     candidate = Candidate(
         path=tmp_path / "datasets",
-        ecosystem="python",
+        ecosystems=["python"],
         category="deletable",
         matched_rule="datasets",
     )
@@ -60,7 +60,7 @@ def test_unsafe_contents_scores_low(tmp_path):
 
     candidate = Candidate(
         path=tmp_path / "dist",
-        ecosystem="python",
+        ecosystems=["python"],
         category="deletable",
         matched_rule="dist",
     )
@@ -72,7 +72,7 @@ def test_unknown_ecosystem_scores_lower(tmp_path):
     (tmp_path / "some_folder").mkdir()
     candidate = Candidate(
         path=tmp_path / "some_folder",
-        ecosystem="unknown",
+        ecosystems=["unknown"],
         category="deletable",
         matched_rule="some_folder",
     )
@@ -80,7 +80,7 @@ def test_unknown_ecosystem_scores_lower(tmp_path):
     score_value_unknown, label_unknown = classify(candidate, tmp_path)
     candidate_known = Candidate(
         path=tmp_path / "some_folder",
-        ecosystem="python",
+        ecosystems=["python"],
         category="deletable",
         matched_rule="some_folder",
     )

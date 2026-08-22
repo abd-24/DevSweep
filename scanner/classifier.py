@@ -100,7 +100,7 @@ def score(candidate: Candidate, root: Path) -> int:
     s = 0
     s += 40
 
-    if candidate.ecosystem != "unknown":
+    if "unknown" not in candidate.ecosystems:
         s += 20
 
     if candidate.path.name.lower() in _load_gitignore(candidate.path):
@@ -118,11 +118,11 @@ def score(candidate: Candidate, root: Path) -> int:
     else:
         s += 15  # assume clean, no user data inside
 
-    if candidate.ecosystem == "unknown":
+    if "unknown" in candidate.ecosystems:
         s -= 30
 
     # only penalize root level if ecosystem is unknown
-    if candidate.path.parent == root and candidate.ecosystem == "unknown":
+    if candidate.path.parent == root and "unknown" in candidate.ecosystems:
         s -= 20
 
     return max(0, min(100, s))
