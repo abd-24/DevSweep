@@ -57,3 +57,8 @@ def test_scan_skips_hidden_files(tmp_path):
     result = scan(tmp_path, skip_hidden=True)
 
     assert tmp_path / ".env" not in result.files
+
+def test_scan_records_hidden_deletables(tmp_path):
+    (tmp_path / ".pytest_cache").mkdir()
+    result = scan(tmp_path, skip_deletables=ALL_DELETABLES)
+    assert tmp_path / ".pytest_cache" in result.folders
