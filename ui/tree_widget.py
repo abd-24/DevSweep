@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
 from PySide6.QtGui import QColor
 from models.candidate import Candidate
-from services.file_service import get_size, format_size
+from services.file_service import format_size
 
 
 class CandidateTree(QTreeWidget):
@@ -37,43 +37,34 @@ class CandidateTree(QTreeWidget):
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
         self.itemChanged.connect(self._on_item_changed)
+    
+    def add_row(self, candidate: Candidate, score: int, label: str, size: int):
+        item = QTreeWidgetItem([
+            candidate.path.name,
+            ", ".join(candidate.ecosystems),
+            str(score),
+            format_size(size),          # was format_size(get_size(candidate.path))
+            label,
+        ])
 
-    def populate(self, candidates: list[Candidate], scores: dict[Path, tuple[int, str]]):
-        self.clear()
+        item.setData(0, Qt.UserRole, candidate.path)
+        item.setData(0, Qt.UserRole + 1, size)      # NEW: raw bytes, kept for summing
 
-        for candidate in candidates:
-            score, label = scores.get(candidate.path, (0, "ignore"))
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(0, Qt.Checked if label == "safe" else Qt.Unchecked)
 
-            item = QTreeWidgetItem([
-                candidate.path.name,
-                ", ".join(candidate.ecosystems),
-                str(score),
-                format_size(get_size(candidate.path)),
-                label,
-            ])
+        item.setTextAlignment(2, Qt.AlignCenter)
+        item.setTextAlignment(3, Qt.AlignRight | Qt.AlignVCenter)
+        item.setTextAlignment(4, Qt.AlignLeft | Qt.AlignVCenter)
 
-            item.setData(0, Qt.UserRole, candidate.path)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        self.addTopLevelItem(item)
 
-            # Auto-check high-confidence items
-            item.setCheckState(
-                0,
-                Qt.Checked if label == "safe" else Qt.Unchecked,
-            )
-
-            item.setTextAlignment(2, Qt.AlignCenter)
-            item.setTextAlignment(3, Qt.AlignRight | Qt.AlignVCenter)
-            item.setTextAlignment(4, Qt.AlignLeft | Qt.AlignVCenter)
-
-            self.addTopLevelItem(item)
-
-            # color code the label column
-            if label == "safe":
-                item.setForeground(4, QColor("#a6e3a1"))   # green
-            elif label == "review":
-                item.setForeground(4, QColor("#f9e2af"))   # yellow
-            else:
-                item.setForeground(4, QColor("#f38ba8"))   # red
+        if label == "safe":
+            item.setForeground(4, QColor("#a6e3a1"))
+        elif label == "review":
+            item.setForeground(4, QColor("#f9e2af"))
+        else:
+            item.setForeground(4, QColor("#f38ba8"))
 
     def get_checked(self) -> list[Path]:
         checked = []
@@ -97,7 +88,8 @@ class CandidateTree(QTreeWidget):
             if item.checkState(0) == Qt.Checked:
                 path = item.data(0, Qt.UserRole)
                 try:
-                    total += get_size(path)
+                    size = item.data(0, Qt.UserRole + 1) or 0
+                    total += size
                 except OSError:
                     continue
         return total

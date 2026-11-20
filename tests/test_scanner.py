@@ -62,3 +62,12 @@ def test_scan_records_hidden_deletables(tmp_path):
     (tmp_path / ".pytest_cache").mkdir()
     result = scan(tmp_path, skip_deletables=ALL_DELETABLES)
     assert tmp_path / ".pytest_cache" in result.folders
+
+def test_scan_stops_when_cancelled(tmp_path):
+    for i in range(5):
+        (tmp_path / f"dir{i}").mkdir()
+        (tmp_path / f"dir{i}" / "a.txt").write_text("x")
+
+    result = scan(tmp_path, should_cancel=lambda: True)
+
+    assert result.file_count == 0

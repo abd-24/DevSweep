@@ -38,10 +38,13 @@ ALWAYS_SKIP = {
     "reports",
 }
 
+from typing import Callable
+
 def scan(
     root: Path,
     skip_hidden: bool = True,
-    skip_deletables: set[str] | None = None
+    skip_deletables: set[str] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> ScanResult:
     """
     Iteratively scan a directory tree using os.scandir().
@@ -62,6 +65,8 @@ def scan(
     stack = [root]
 
     while stack:
+        if should_cancel is not None and should_cancel():
+            return result          # partial result; the worker ignores it
         current = stack.pop()
 
         try:

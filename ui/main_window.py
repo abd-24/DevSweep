@@ -15,6 +15,10 @@ from ui.tree_widget import CandidateTree
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from ui.styles import APP_STYLESHEET
+from datetime import datetime
+from scanner.scan_worker import ScanWorker
+from services.file_service import format_size
+from services.report_service import generate_scan_report, save_report
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -27,6 +31,12 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         self.layout = QVBoxLayout(central)
+        
+        self.worker = None      # must be self.worker, or it gets garbage-collected
+        self._candidates = []
+        self._scores = {}       # path -> (score, label), same shape as before
+        self._sizes = {}        # path -> bytes, computed once by the worker
+        self._root = None
 
         self._build_folder_row()    # top section
         self._build_results_area()  # middle section
@@ -83,33 +93,70 @@ class MainWindow(QMainWindow):
             self._run_scan(folder)
 
     def _run_scan(self, folder: str):
-        from pathlib import Path
-        from datetime import datetime
-        from scanner.scanner import scan
-        from scanner.detector import detect_candidates, ALL_DELETABLES
-        from scanner.classifier import classify
-        from services.file_service import format_size, get_size
-        from services.report_service import generate_scan_report, save_report
+        # Never run two scans at once
+        if self.worker is not None and self.worker.isRunning():
+            return
 
-        root = Path(folder)
-        scan_result = scan(root, skip_deletables=ALL_DELETABLES)
-        candidates = detect_candidates(scan_result)
+        self._root = Path(folder)
+        self._candidates = []
+        self._scores = {}
+        self._sizes = {}
 
-        scores = {}
-        total_reclaimable = 0
-        for c in candidates:
-            score, label = classify(c, root)
-            scores[c.path] = (score, label)
-            if label == "safe":
-                total_reclaimable += get_size(c.path)
+        self.tree.clear()
+        self.tree.setSortingEnabled(False)   # sorting while rows stream in makes them jump
+        self._set_scanning(True)
 
-        self.tree.populate(candidates, scores)
+        self.worker = ScanWorker(self._root)
+        self.worker.candidate_ready.connect(self._on_candidate_ready)
+        self.worker.progress.connect(self._on_progress)
+        self.worker.scan_complete.connect(self._on_scan_complete)
+        self.worker.scan_cancelled.connect(self._on_scan_cancelled)
+        self.worker.scan_error.connect(self._on_scan_error)
+        self.worker.start()                  # start(), NOT run()
+
+    def _set_scanning(self, scanning: bool):
+        """Lock the buttons that must not be used mid-scan."""
+        for btn in (self.browse_button, self.delete_btn, self.dry_run_btn,
+                    self.auto_select_btn, self.select_all_btn):
+            btn.setEnabled(not scanning)
+
+    def _on_candidate_ready(self, candidate, score, label, size):
+        self._candidates.append(candidate)
+        self._scores[candidate.path] = (score, label)
+        self._sizes[candidate.path] = size
+        self.tree.add_row(candidate, score, label, size)
+
+    def _on_progress(self, text: str):
+        self.statusBar().showMessage(text)
+
+    def _on_scan_complete(self, total_reclaimable, count):
+        self.tree.setSortingEnabled(True)
+        self._set_scanning(False)
         self.savings_label.setText(f"Potential savings: {format_size(total_reclaimable)}")
+        self.statusBar().showMessage(f"Scan complete: {count} candidates found")
 
-        report = generate_scan_report(candidates, scores, root)
+        report = generate_scan_report(self._candidates, self._scores, self._sizes, self._root)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = Path("reports") / f"scan_{timestamp}.json"
-        save_report(report, output)
+        save_report(report, Path("reports") / f"scan_{timestamp}.json")
+
+    def _on_scan_cancelled(self):
+        self.tree.setSortingEnabled(True)
+        self._set_scanning(False)
+        self.statusBar().showMessage("Scan cancelled")
+
+    def _on_scan_error(self, tb_text: str):
+        from ui.dialogs import show_error
+        print(tb_text)                       # full traceback in the console for you
+        self.tree.setSortingEnabled(True)
+        self._set_scanning(False)
+        self.statusBar().showMessage("Scan failed")
+        show_error(self, f"Scan failed: {tb_text.strip().splitlines()[-1]}")
+
+    def closeEvent(self, event):
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.requestInterruption()
+            self.worker.wait()               # block until the thread really stops
+        event.accept()
 
     def _on_select_all(self):
         for i in range(self.tree.topLevelItemCount()):
@@ -134,7 +181,7 @@ class MainWindow(QMainWindow):
             return
         
         from services.file_service import get_size, format_size
-        sizes = {path: format_size(get_size(path)) for path in checked_paths}
+        sizes = {path: format_size(self._sizes.get(path, 0)) for path in checked_paths}
         show_dry_run(self, checked_paths, sizes)
     
     def _on_delete(self):
@@ -143,18 +190,17 @@ class MainWindow(QMainWindow):
         if not checked_paths:
             show_error(self, "No items selected for deletion.")
             return
-        from services.file_service import get_size, format_size
-        total = format_size(sum(get_size(p) for p in checked_paths))
+
+        total = format_size(sum(self._sizes.get(p, 0) for p in checked_paths))
         confirmed = confirm_delete(self, checked_paths, total)
         if confirmed:
-                from services.recycle_service import delete
-                for path in checked_paths:
-                    try:
-                        delete(path)
-                    except Exception as e:
-                        show_error(self, f"Failed to delete {path}: {e}")
-        self._run_scan(self.path_display.text())
-        self.tree.update_savings()
+            from services.recycle_service import delete
+            for path in checked_paths:
+                try:
+                    delete(path)
+                except Exception as e:
+                    show_error(self, f"Failed to delete {path}: {e}")
+            self._run_scan(self.path_display.text())   # rescan only after a real delete
 
     #Styling
     def _apply_styles(self):
