@@ -166,18 +166,19 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def _on_select_all(self):
+        self.tree.blockSignals(True)
         for i in range(self.tree.topLevelItemCount()):
-            item = self.tree.topLevelItem(i)
-            item.setCheckState(0, Qt.Checked)
+            self.tree.topLevelItem(i).setCheckState(0, Qt.Checked)
+        self.tree.blockSignals(False)
+        self._on_selection_changed()
 
     def _on_auto_select(self):
+        self.tree.blockSignals(True)
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
-            label = item.text(4)
-            if label == "safe":
-                item.setCheckState(0, Qt.Checked)
-            else:
-                item.setCheckState(0, Qt.Unchecked)
+            item.setCheckState(0, Qt.Checked if item.text(4) == "safe" else Qt.Unchecked)
+        self.tree.blockSignals(False)
+        self._on_selection_changed()
     
     def _on_dry_run(self):
         from ui.dialogs import show_dry_run
@@ -187,9 +188,10 @@ class MainWindow(QMainWindow):
             show_error(self, "No items selected for dry run.")
             return
         
-        from services.file_service import get_size, format_size
+        from services.file_service import format_size
         sizes = {path: format_size(self._sizes.get(path, 0)) for path in checked_paths}
-        show_dry_run(self, checked_paths, sizes)
+        total = format_size(sum(self._sizes.get(p, 0) for p in checked_paths))
+        show_dry_run(self, checked_paths, sizes, total)
     
     def _on_delete(self):
         from ui.dialogs import confirm_delete, show_error

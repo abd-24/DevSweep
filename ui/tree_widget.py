@@ -36,7 +36,6 @@ class CandidateTree(QTreeWidget):
         self.setRootIsDecorated(False)
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
-        self.itemChanged.connect(self._on_item_changed)
     
     def add_row(self, candidate: Candidate, score: int, label: str, size: int):
         item = QTreeWidgetItem([
@@ -75,13 +74,9 @@ class CandidateTree(QTreeWidget):
                 checked.append(item.data(0, Qt.UserRole))
 
         return checked
-    
-    def _on_item_changed(self, item, column):
-        if column == 0:  # checkbox column
-            self.update_savings()
 
     def update_savings(self):
-        from services.file_service import get_size, format_size
+        from services.file_service import format_size
         total = 0
         for i in range(self.topLevelItemCount()):
             item = self.topLevelItem(i)

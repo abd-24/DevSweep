@@ -19,12 +19,11 @@ def confirm_delete(parent, paths: list[Path], total_size: str) -> bool:
     return result == QMessageBox.Yes
 
 
-def show_dry_run(parent, paths: list[Path], sizes: dict[Path, str]):
+def show_dry_run(parent, paths: list[Path], sizes: dict[Path, str], total: str):
     lines = ["Would delete:\n"]
     for path in paths:
-        size = sizes.get(path, "?")
-        lines.append(f"  {path.name}  —  {size}")
-    lines.append(f"\nTotal: {sum_sizes(sizes, paths)}")
+        lines.append(f"  {path.name}  —  {sizes.get(path, '?')}")
+    lines.append(f"\nTotal: {total}")
     lines.append("Nothing was deleted.")
     QMessageBox.information(parent, "Dry Run Preview", "\n".join(lines))
 
