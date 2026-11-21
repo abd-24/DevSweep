@@ -10,12 +10,12 @@ import dataclasses
 from datetime import datetime
 from pathlib import Path
 from models.candidate import Candidate
-from services.file_service import get_size
 from models.report import ScanReport
 
 def generate_scan_report(
     candidates: list[Candidate],
     scores: dict[Path, tuple[int, str]],
+    sizes: dict[Path, int],
     root: Path
 ) -> ScanReport:
     """
@@ -33,7 +33,7 @@ def generate_scan_report(
 
     for candidate in candidates:
         score, label = scores[candidate.path]
-        size = get_size(candidate.path)
+        size = sizes.get(candidate.path, 0)
         
         entry = {
             "path": str(candidate.path),

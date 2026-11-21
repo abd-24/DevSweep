@@ -1,6 +1,6 @@
 # Responsible for recursively walking the directory tree
 # Collects all folders and files under a given root.
-
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -38,73 +38,87 @@ ALWAYS_SKIP = {
     "reports",
 }
 
-def scan(root: Path, skip_hidden: bool = True, skip_deletables: set = None) -> ScanResult:
+from typing import Callable
+
+def scan(
+    root: Path,
+    skip_hidden: bool = True,
+    skip_deletables: set[str] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+) -> ScanResult:
     """
-    Recursively walk every folder and file under root.
+    Iteratively scan a directory tree using os.scandir().
 
-    Args:
-        root:        The directory to scan.
-        skip_hidden: If True, skips folders/files starting with '.'
-                     (e.g. .git, .venv). Recommended for most scans.
-
-    Returns:
-        A ScanResult containing every folder and file found.
-
-    Raises:
-        ValueError: If root does not exist or is not a directory.
+    Deletable directories are recorded as candidates but never traversed.
+    Symlinks and inaccessible directories are skipped.
     """
+
     if not root.exists():
         raise ValueError(f"Path does not exist: {root}")
+
     if not root.is_dir():
         raise ValueError(f"Path is not a directory: {root}")
 
     result = ScanResult(root=root)
+    skip_deletables = skip_deletables or set()
 
-    for current_dir, subdirs, files in root.walk():
-        for d in subdirs:
-            folder_path = current_dir / d
-            try:
-                if folder_path.is_symlink():
-                    continue
-            except OSError:
-                continue
-            
-            if skip_deletables and d in skip_deletables:
-                result.folders.append(folder_path)
-                
-        subdirs[:] = [
-            d for d in subdirs
-            if d not in ALWAYS_SKIP
-            and not (skip_hidden and d.startswith("."))
-            and (skip_deletables is None or d not in skip_deletables) # <- for making sure scan doesn't go into deletable folders
-        ]
-        for d in subdirs:
-            folder_path = current_dir / d
+    stack = [root]
 
-            # skip symbolic links — follow-through can cause infinite loops
-            try:
-                if folder_path.is_symlink():
-                    continue
-            except OSError:
-                continue
+    while stack:
+        if should_cancel is not None and should_cancel():
+            return result          # partial result; the worker ignores it
+        current = stack.pop()
 
-            result.folders.append(folder_path)
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    if should_cancel is not None and should_cancel():   # check 2: once per entry
+                        return result
+                    name = entry.name
+                    
+                    # Skip symlinks
+                    try:
+                        if entry.is_symlink() or entry.is_junction():
+                            continue
 
-        for filename in files:
-            file_path = current_dir / filename
+                        is_dir = entry.is_dir(follow_symlinks=False)
 
-            if skip_hidden and filename.startswith("."):
-                continue
+                    except OSError:
+                        continue
 
-            try:
-                if file_path.is_symlink():
-                    continue
-            except OSError:
-                continue
+                    # Skip permanently excluded directories
+                    if is_dir and name in ALWAYS_SKIP:
+                        continue
 
-            result.files.append(file_path)
+                    # Skip hidden entries                    
+                    is_deletable = is_dir and name in skip_deletables
+
+                    if skip_hidden and name.startswith(".") and not is_deletable:
+                        continue
+
+                    path = Path(entry.path)
+
+                    if is_dir:
+                        # Record deletable directories, but don't descend
+                        if name in skip_deletables:
+                            result.folders.append(path)
+                            continue
+
+                        result.folders.append(path)
+                        stack.append(path)
+
+                    else:
+                        try:
+                            if entry.is_file(follow_symlinks=False):
+                                result.files.append(path)
+                        except OSError:
+                            continue
+
+        except (PermissionError, OSError):
+            continue
 
     return result
+
 
 
 if __name__ == "__main__":

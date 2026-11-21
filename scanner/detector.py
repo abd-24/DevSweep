@@ -3,6 +3,8 @@ from pathlib import Path
 from scanner.scanner import ScanResult
 from rules import python_rules, node_rules, java_rules, rust_rules, cpp_rules
 from models.candidate import Candidate
+import os
+from functools import lru_cache
 
 ECOSYSTEM_RULES = [
     ("python", python_rules),
@@ -12,21 +14,25 @@ ECOSYSTEM_RULES = [
     ("cpp",    cpp_rules),
 ]
 
+@lru_cache(maxsize=None)
+def _ecosystems_in_dir(directory: Path) -> tuple[str, ...]:
+    """Which ecosystems have a signature file directly inside this folder?
+    The result is cached, so each folder is only ever listed once."""
+    try:
+        with os.scandir(directory) as entries:
+            names = {e.name for e in entries if e.is_file()}
+    except OSError:
+        return ()
+    return tuple(
+        ecosystem
+        for ecosystem, rules in ECOSYSTEM_RULES
+        if any(sig in names for sig in rules.SIGNATURES)
+    )
 def find_ecosystems(path: Path) -> list[str]:
     for parent in path.parents:
-        try:
-            files_here = {f.name for f in parent.iterdir() if f.is_file()}
-        except (PermissionError, OSError):
-            continue
-        
-        found = []
-        for ecosystem, rules in ECOSYSTEM_RULES:
-            if any(sig in files_here for sig in rules.SIGNATURES):
-                found.append(ecosystem)
-        
+        found = _ecosystems_in_dir(parent)
         if found:
-            return found  # stop at nearest level, return ALL matches
-    
+            return list(found)      # nearest level wins, same as before
     return ["unknown"]
 
 ALL_DELETABLES = set()
@@ -41,9 +47,8 @@ def detect_candidates(scan_result: ScanResult):
     Detects the scanned files and folders into candidates based on ecosystem rules.
     Returns a list of Candidate objects.
     """
+    _ecosystems_in_dir.cache_clear()   # forget old answers; files may have changed since the last scan
     candidates = []
-
-    
    
     for folder_path in scan_result.folders:
         if folder_path.name in ALL_DELETABLES:
