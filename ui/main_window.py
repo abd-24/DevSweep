@@ -20,6 +20,7 @@ from time import perf_counter
 from scanner.scan_worker import ScanWorker
 from services.file_service import format_size
 from services.report_service import generate_scan_report, save_report
+from services.delete_worker import DeleteWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -34,6 +35,7 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout(central)
         
         self.worker = None      # must be self.worker, or it gets garbage-collected
+        self.delete_worker = None
         self._candidates = []
         self._scores = {}       # path -> (score, label), same shape as before
         self._sizes = {}        # path -> bytes, computed once by the worker
@@ -160,9 +162,10 @@ class MainWindow(QMainWindow):
         show_error(self, f"Scan failed: {tb_text.strip().splitlines()[-1]}")
 
     def closeEvent(self, event):
-        if self.worker is not None and self.worker.isRunning():
-            self.worker.requestInterruption()
-            self.worker.wait()               # block until the thread really stops
+        for w in (self.worker, self.delete_worker):
+            if w is not None and w.isRunning():
+                w.requestInterruption()
+                w.wait()
         event.accept()
 
     def _on_select_all(self):
@@ -202,14 +205,28 @@ class MainWindow(QMainWindow):
 
         total = format_size(sum(self._sizes.get(p, 0) for p in checked_paths))
         confirmed = confirm_delete(self, checked_paths, total)
-        if confirmed:
-            from services.recycle_service import delete
-            for path in checked_paths:
-                try:
-                    delete(path)
-                except Exception as e:
-                    show_error(self, f"Failed to delete {path}: {e}")
-            self._run_scan(self.path_display.text())   # rescan only after a real delete
+        if not confirmed:
+            return
+
+        self._set_scanning(True)      # locks the buttons, so no double clicks mid-delete
+        self.delete_worker = DeleteWorker(checked_paths)
+        self.delete_worker.progress.connect(self._on_progress)
+        self.delete_worker.delete_done.connect(self._on_delete_done)
+        self.delete_worker.start()
+
+    def _on_delete_done(self, deleted, failures, cancelled):
+        from ui.dialogs import show_error
+
+        self._set_scanning(False)
+        self.statusBar().showMessage(f"Deleted {deleted} item(s)")
+
+        if failures:
+            lines = [f"{p.name}: {err}" for p, err in failures[:10]]
+            more = f"\n...and {len(failures) - 10} more" if len(failures) > 10 else ""
+            show_error(self, f"{len(failures)} item(s) could not be deleted:\n"
+                             + "\n".join(lines) + more)
+
+        self._run_scan(self.path_display.text())    # refresh the list
 
     #Styling
     def _apply_styles(self):
