@@ -4,23 +4,37 @@ services/file_service.py
 
 Responsible for calculating folder sizes and file counts.
 """
+import os
 from pathlib import Path
 def get_size(path: Path) -> int:
-    """
-    Calculate the total size of a file or directory in bytes.
-    """
-    if path.is_file():
-        return path.stat().st_size
-    if path.is_dir():
-        total = 0
-        for entry in path.rglob("*"):
-            if entry.is_file() and not entry.is_symlink():
-                try:
-                    total += entry.stat().st_size
-                except OSError:
-                    continue
-        return total
-    return 0
+    """Total size in bytes of a file, or of everything inside a folder."""
+    try:
+        if path.is_file():
+            return path.stat().st_size
+    except OSError:
+        return 0
+
+    total = 0
+    stack = [str(path)]
+
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_symlink() or entry.is_junction():
+                            continue                      # never follow links
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                        else:
+                            total += entry.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+
+    return total
 
 def get_file_count(path: Path) -> int:
     """
