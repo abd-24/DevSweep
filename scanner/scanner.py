@@ -72,8 +72,10 @@ def scan(
         try:
             with os.scandir(current) as entries:
                 for entry in entries:
+                    if should_cancel is not None and should_cancel():   # check 2: once per entry
+                        return result
                     name = entry.name
-
+                    
                     # Skip symlinks
                     try:
                         if entry.is_symlink() or entry.is_junction():

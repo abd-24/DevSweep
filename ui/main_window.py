@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from ui.styles import APP_STYLESHEET
 from datetime import datetime
+from time import perf_counter
 from scanner.scan_worker import ScanWorker
 from services.file_service import format_size
 from services.report_service import generate_scan_report, save_report
@@ -112,6 +113,7 @@ class MainWindow(QMainWindow):
         self.worker.scan_complete.connect(self._on_scan_complete)
         self.worker.scan_cancelled.connect(self._on_scan_cancelled)
         self.worker.scan_error.connect(self._on_scan_error)
+        self._scan_started = perf_counter()   # "press the stopwatch"
         self.worker.start()                  # start(), NOT run()
 
     def _set_scanning(self, scanning: bool):
@@ -133,12 +135,17 @@ class MainWindow(QMainWindow):
         self.tree.setSortingEnabled(True)
         self._set_scanning(False)
         self.savings_label.setText(f"Potential savings: {format_size(total_reclaimable)}")
-        self.statusBar().showMessage(f"Scan complete: {count} candidates found")
 
-        report = generate_scan_report(self._candidates, self._scores, self._sizes, self._root)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_report(report, Path("reports") / f"scan_{timestamp}.json")
+        elapsed = perf_counter() - self._scan_started
+        self.statusBar().showMessage(f"Scan complete: {count} candidates in {elapsed:.1f}s")
 
+        try:
+            report = generate_scan_report(self._candidates, self._scores, self._sizes, self._root)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            save_report(report, Path("reports") / f"scan_{timestamp}.json")
+        except OSError as e:
+            from ui.dialogs import show_error
+            show_error(self, f"Could not save scan report: {e}")
     def _on_scan_cancelled(self):
         self.tree.setSortingEnabled(True)
         self._set_scanning(False)

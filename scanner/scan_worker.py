@@ -84,6 +84,9 @@ class ScanWorker(QThread):
                 self.candidate_ready.emit(candidate, score, label, size)
 
             # Stage 4: done
+            if self._is_cancelled():
+                self.scan_cancelled.emit()
+                return           
             self.scan_complete.emit(total_reclaimable, total_candidates)
 
         except Exception:
